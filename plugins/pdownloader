@@ -1,0 +1,132 @@
+<?php
+/*
+    RadioCloud daemon - Part of RadioCloud automation system
+    Copyright (C) 2018 - Aritz Olea Zubikarai <aritzolea@gmail.com>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+    
+    
+    PLUGIN: pdownloader
+    AUTHOR: Aritz Olea Zubikarai <aritzolea@gmail.com>
+    DATE:   19-06-2018
+    DESC:   Plugin honek podcastak deskargatzen ditu RSSak erabiliz.
+*/
+
+ /* ONLY FOR DEBUGGING */
+ ini_set('display_errors', 'Off');
+ //error_reporting(E_ALL);
+
+/* Get info */
+
+$url = $argv[1];
+$all = $argv[2];
+$last = $argv[3];
+$dir = $argv[4];
+$fileto = $argv[5];
+
+/* Return function */
+
+function send_message($type, $msg)
+{
+    die("$type:$msg");
+}
+
+/* Kodeak
+    0 -> Errorea
+    1 -> Eguneraketa egin da
+    2 -> Eguneratuta dago
+*/
+
+// Only one download or just update?
+
+if ($all == 1) // Update podcasts
+{
+     $rss = new DOMDocument();
+     $rss->load($url);
+     $feed = array();
+     $PDIR = $dir."/".$fileto;
+
+     $first_file = '';
+     foreach ($rss->getElementsByTagName('item') as $node) 
+     {
+        // Update file name
+        $file_name = $node->getElementsByTagName('enclosure')->item(0)->getAttribute('url');
+        $first_file = ($first_file == '') ? basename($file_name) : $first_file;
+
+
+        if ($last == basename($file_name)) // Everything updated
+        {
+                send_message(2, "Updated");
+        }
+
+        // Download podcast 
+
+        
+        exec("mkdir -p ".$PDIR);
+
+        /* Using curl to download file */
+        set_time_limit(0);
+        $fp = fopen ($PDIR . '/'.basename($file_name), 'w+');
+        $ch = curl_init(str_replace(" ","%20",$file_name));
+        curl_setopt($ch, CURLOPT_TIMEOUT, 50);
+        curl_setopt($ch, CURLOPT_FILE, $fp); 
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_exec($ch); 
+        curl_close($ch);
+        fclose($fp);
+
+     }
+
+
+    send_message(1, $first_file);
+    
+}
+
+// Update with the last file
+else {
+    $rss = new DOMDocument();
+    $rss->load($url);
+    $feed = array();
+    $PDIR = $dir."/".$fileto;
+
+    $first_file = '';
+    if ($node = $rss->getElementsByTagName('item')[0])
+    {
+        $file_name = $node->getElementsByTagName('enclosure')->item(0)->getAttribute('url');
+        $filenamebase = basename($file_name);
+
+        if ($last == basename($file_name)) // Everything updated
+        {
+                send_message(2, "Updated");
+        } else {
+
+        /* Using curl to download file */
+        set_time_limit(0);
+        $fp = fopen ($PDIR, 'w+');
+        $ch = curl_init(str_replace(" ","%20",$file_name));
+        curl_setopt($ch, CURLOPT_TIMEOUT, 50);
+        curl_setopt($ch, CURLOPT_FILE, $fp); 
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_exec($ch); 
+        curl_close($ch);
+        fclose($fp);
+        send_message(1, $filenamebase);
+
+        }
+    } 
+
+}
+
+send_message(0, "Error");
+

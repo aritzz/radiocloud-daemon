@@ -1,0 +1,52 @@
+-------------------------------------------------------------
+======    RADIOCLOUD - IRRATI AUTOMATIZAZIO SISTEMA    ======
+-------------------------------------------------------------
+
+
+INSTALAZIOA: AURKIBIDEA
+=========================
+
+0. Egileak eta partaideak
+1. Beharrezko liburutegiak
+2. Konpilazioa eta exekuzioa
+
+
+0. Egileak eta partaideak
+---------
+
+Garatzaile nagusia:
+	Aritz Olea Zubikarai <aritzolea@gmail.com> 
+Proiektuan parte hartzeko kontaktua:
+    Aritz Olea Zubikarai <aritzolea@gmail.com>
+Lizentzia
+	Ikusi LICENSE fitxategia
+Dokumentazioa, etab.
+	http://radiocloud.radixu.info
+	https://github.com/aritzz/radiocloud
+
+1. Beharrezko liburutegiak
+---------
+
+Zerbitzuak funtzionatzeko ondorengo liburutegi eta software hauek instalatu behar dituzu zure sisteman:
+	libmysql-dev (edo mariadb), libxml2-dev, gstreamer-1.0-dev (ogg eta lame pluginekin), libcurl-dev (>7.52), gcc oinarrizkoak (build-essentials debian sistemetan), make
+
+Arrosa pluginaren funtzionamendurako instalatu beharrekoa
+	php-cli, php-xml, php-curl, php-mysql 
+
+2. Konpilazioa eta exekuzioa
+---------
+
+Lehendabizi deskonprimitu fitxategia
+	$ tar -zxfj radiocloud-daemon-x.x.tar.gz
+Eta ondoren konpilatu
+	$ make
+Konfigurazio-fitxategia aldatu zure gustura
+	$ vi daemon.conf
+Eta exekutatu gure deabrutxoa
+	$ ./rc-daemon
+
+
+
+
+
+

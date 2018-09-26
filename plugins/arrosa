@@ -1,0 +1,167 @@
+<?php 
+/*
+    RadioCloud daemon - Part of RadioCloud automation system
+    Copyright (C) 2018 - Aritz Olea Zubikarai <aritzolea@gmail.com>
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+    
+    
+    PLUGIN: Arrosa
+    AUTHOR: Aritz Olea Zubikarai <aritzolea@gmail.com>
+    DATE:   27-02-2018
+    DESC:   Plugin honek Arrosa Sareako (www.arrosasarea.eus) wordpressera bidaltzen ditu datuak XML-RPC erabiliz.
+            Ezin dira fitxategiak bidali tamaina dela-eta, beraz URL bat pasa behar zaio scriptari.
+*/
+
+require_once("plugins/arrosa_include/IXR_Library.php");
+
+/* Get info */
+
+$sqlhost = $argv[1];
+$sqlport = $argv[2];
+$sqluser = $argv[3];
+$sqlpass = $argv[4];
+$sqldb = $argv[5];
+$encoded_file = $argv[6];
+$podcast_id = $argv[7];
+$extra_params = $argv[8];
+
+
+/* ONLY FOR DEBUGGING */
+ini_set('display_errors', 'On');
+error_reporting(E_ALL);
+set_time_limit(0);
+
+if ($argc < 8) die("Error: Needed more arguments");
+
+/** Connect to MySQL database */
+
+$mysqli = new mysqli($sqlhost, $sqluser, $sqlpass, $sqldb, $sqlport);
+
+if ($mysqli->connect_errno) 
+	die("ERROR: Cannot connect to database");
+
+$podcastrow = get_podcast($podcast_id);
+syslog(LOG_INFO, $extra_params);
+upload_arrosa($podcastrow, $encoded_file, $extra_params);
+echo "1";
+
+
+function get_podcast($id) {
+	global $mysqli;
+	$podcastdirQ = $mysqli->query("SELECT podcast_upload.*, users.username as username, users.image as image, programs.arrosa_user as arrosa_user, programs.arrosa_pass as arrosa_pass, programs.arrosa_category as arrosa_category, programs.name as progname FROM ((podcast_upload INNER JOIN users ON users.id=podcast_upload.userid) INNER JOIN programs ON programs.id=users.programid) WHERE podcast_upload.id=$id limit 1");
+	
+	$podcastdir = $podcastdirQ->fetch_assoc();
+	
+	return $podcastdir;
+}
+
+function get_dir($type) {
+	global $mysqli;
+	$podcastdirQ = $mysqli->query("SELECT dirpath FROM dirs WHERE dirname='$type' LIMIT 1");
+	
+	$podcastdir = $podcastdirQ->fetch_assoc();
+	
+	return $podcastdir['dirpath'];
+}
+
+function get_config($type) {
+    global $mysqli;
+    $podcastdirQ = $mysqli->query("SELECT value FROM config WHERE var='$type' LIMIT 1");
+    
+    $podcastdir = $podcastdirQ->fetch_assoc();
+    
+    return $podcastdir['value'];
+}
+
+/** Log into database and display **/
+function log_db($text, $display=true) {
+	global $mysqli;
+	
+	$text = $mysqli->real_escape_string($text);
+	$text = "[RC-daemon-arrosa] ".$text;
+	$mysqli->query("INSERT INTO log VALUES(NULL, NOW(), 'info', '$text')");
+
+	if ($display)
+		echo $text;
+}
+
+function upload_arrosa($podcast, $podcast_temp, $podcast_link)
+{
+    global $radixu_server_url, $mysqli;
+    log_db("Uploading ".$podcast['progname']." to ARROSA", false);
+
+	 $client = new IXR_Client(get_dir('arrosa_xmlrpc'));
+
+     if (empty($podcast['arrosa_user']))
+     {
+        log_db($podcast['progname']." trying to upload to Arrosa, but NOT ALLOWED or EMPTY USER", false);
+        return;
+     }
+	/* 
+	 * Irudia igo
+	 */
+
+	$image = get_dir('radiocloud_dir').$podcast['image'];
+	$image_bin = file_get_contents($image);
+	$content = array(
+        'name' => basename($image),
+        'type' => mime_content_type($image),
+        'bits' => new IXR_Base64($image_bin),
+        'overwrite' => TRUE
+    );
+
+
+    $client->query('metaWeblog.newMediaObject', 1, $podcast['arrosa_user'], $podcast['arrosa_pass'], $content);
+    $image_id = $client->getResponse();
+    
+    $client2 = new IXR_Client(get_dir('arrosa_xmlrpc'));
+
+
+	/*
+	 * Podcasta igo
+	 */
+    $the_slug_into_array = explode('-', $podcast['title']);
+    $keywords = implode(',', $the_slug_into_array );
+
+	$encoding = "UTF-8";
+	$title = htmlentities($podcast['title'],ENT_NOQUOTES,$encoding);
+    $keywords = htmlentities($keywords,ENT_NOQUOTES,$encoding);
+    $content = array(
+        'title'=>$podcast['progname'].": ".$podcast['title'],
+        'description'=> $mysqli->real_escape_string($podcast['text']),
+        'mt_allow_comments'=>1,
+        'mt_allow_pings'=>0,
+        'post_type'=>'post',
+       // 'post_status'=>'draft', //if you want to test first
+        'mt_keywords'=>$keywords,
+        'categories'=>array($podcast['arrosa_category']),
+        'wp_post_thumbnail'=>$image_id['id']
+    );
+
+	$enclosure_value = $podcast_link;
+    $enclosure_value .= "\n";
+    $enclosure_value .= filesize($podcast_temp);
+    $enclosure_value .= "\n";
+    $enclosure_value .= filetype($podcast_temp);
+
+    /* Pass custom fields */
+    $content['custom_fields'] = array(
+            array( 'key' => 'enclosure', 'value' => $enclosure_value )
+            );
+    $params = array(0,$podcast['arrosa_user'],$podcast['arrosa_pass'],$content,true);
+    $client->query('metaWeblog.newPost', 1, $podcast['arrosa_user'], $podcast['arrosa_pass'], $content, 1);
+}
+
+
