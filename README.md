@@ -1,7 +1,7 @@
 # radiocloud-daemon
 Part of RadioCloud software. Radiocloud daemon for automated actions.
 
-*This software is available only in Basque. Multilanguage translation still in progress.*
+*This software is only available in Basque. Multilanguage translation still in progress.*
 
 ## Sarrera: Zer da hau?
 RadioCloud softwareak web bidez funtzionatzen du, baina podcasten deskargak, igoerak eta beste hainbat bihurketa egiteko beharrezkoa da beti exekutatzen ari den programa bat hor egotea. Horretarako dago *daemon* hau. Beharrezkoa da softwarea dagoen ordenagailu berean instalatzea.
